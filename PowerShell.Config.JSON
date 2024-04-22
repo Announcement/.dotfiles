@@ -1,0 +1,20 @@
+{
+    "DisableImplicitWinCompat": true,
+    "ExperimentalFeatures": [
+        "PSSubsystemPluginModel",
+        "PSFeedbackProvider",
+        "PSCommandNotFoundSuggestion",
+        "PSLoadAssemblyFromNativeCode"
+    ],
+    "ModuleLogging": {
+        "EnableModuleLogging": true,
+        "ModuleNames": [
+            "PSReadLine",
+            "PSResourceGet"
+        ]
+    },
+    "Transcription": {
+        "EnableTranscripting": true,
+        "EnableInvocationHeader": true
+    }
+}
