@@ -1,0 +1,1 @@
+Get-ChildItem C:\Users\power\Downloads -File | Sort-Object -Property Extension | Group-Object Extension | % { [PSCustomObject]@{Name=.Name;Count=.Count;Size = .Group | Measure-Object -Property Length -Sum | Select-Object -ExpandProperty Sum | % { [int]( / 1MB)} } } | Sort-Object -Property Size
