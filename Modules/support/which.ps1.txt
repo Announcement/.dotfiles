@@ -1,0 +1,1 @@
+Get-ChildItem d | ForEach-Object { Write-Output "Filename: $($_.Name)" ; fsutil hardlink list $_.FullName | %{ $(Resolve-Path -Relative $_) -replace '\\','/' -replace '\./','' } ; Write-Output "" }

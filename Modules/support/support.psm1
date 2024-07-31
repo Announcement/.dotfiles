@@ -1,4 +1,26 @@
+# [regex]::new("(?<=[\r\n])(?<argument_space>\x20+)(-(?<singlet>[^-\s]+))?(--(?<argument>[_a-zA-Z0-9-]+)).+(?:(?:[\r\n]+(?<description_space>\k<argument_space>\x20+).+)([\r\n]+\k<description_space>.+|[\r\n]\s*(?=[\r\n]))*)?", [System.Text.RegularExpressions.RegexOptions]::Compiled).Matches(((rg -h) | Join-String -Separator "`n")).ForEach({ $_.Groups.where({ $_.Name -like "argument" }).value })
+
+
+# All Users, All Hosts
+# Windows - $PSHOME\Profile.ps1
+# Linux - /opt/microsoft/powershell/7/profile.ps1
+# macOS - /usr/local/microsoft/powershell/7/profile.ps1
+# All Users, Current Host
+# Windows - $PSHOME\Microsoft.PowerShell_profile.ps1
+# Linux - /opt/microsoft/powershell/7/Microsoft.PowerShell_profile.ps1
+# macOS - /usr/local/microsoft/powershell/7/Microsoft.PowerShell_profile.ps1
+# Current User, All Hosts
+# Windows - $HOME\Documents\PowerShell\Profile.ps1
+# Linux - ~/.config/powershell/profile.ps1
+# macOS - ~/.config/powershell/profile.ps1
+# Current user, Current Host
+# Windows - $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
+# Linux - ~/.config/powershell/Microsoft.PowerShell_profile.ps1
+# macOS - ~/.config/powershell/Microsoft.PowerShell_profile.ps1
 # ug --help | Out-String -Stream | % { $expression = [regex]::new("(?<=^\x20{4})(?=\S)-.+([\r\n]+)", [System.Text.RegularExpressions.RegexOptions]::Multiline); $expression.Match($_) ; $expression.Matches() }
+
+# C:\Users\power\AppData\Roaming\Package\version\zig\latest
+
 enum PSEditions {
 	Core
 	Desktop
@@ -6,7 +28,26 @@ enum PSEditions {
 enum Privelege {
 	System
 	User
+	Process
 }
+
+[Flags()] enum DevelopmentEnvironment {
+	Bison
+	Chocolatey
+	Dotnet
+	Flex
+	Mamba
+	Perl
+	Posh
+	Vcpkg
+	Vulkan
+	Zig
+	Rust
+	ESP
+	CMake
+	Clang
+}
+
 # $Locations = [pscustomobject]@{
 # 	Program = $env:ProgramFiles
 # 	User = $env:USERPROFILE
@@ -237,9 +278,11 @@ function Get-DataSize {
 		[Int64]
 		$size
 	)
-	($size -gt 1GB) ?
+	($size -ge 1TB) ?
+		("{0,3:N0} TB" -f ($size / 1TB)) :
+	($size -ge 1GB) ?
 		("{0,3:N0} GB" -f ($size / 1GB)) :
-	($size -gt 1MB) ?
+	($size -ge 1MB) ?
 		("{0,3:N0} MB" -f ($size / 1MB)) :
 		("{0,3:N0} KB" -f ($size / 1KB))
 }
@@ -271,6 +314,39 @@ function Get-Ancestors {
 # Invoke-Command {
 	
 # }
+function Get-Environment {
+	<#
+	.SYNOPSIS
+		Environment Path
+	.DESCRIPTION
+		A longer description of the function, its purpose, common use cases, etc.
+	.NOTES
+		Information or caveats about the function e.g. 'This function is not supported in Linux'
+	.LINK
+		Specify a URI to a help page, this will show when Get-Help -Online is used.
+	.EXAMPLE
+		Test-MyTestFunction -Verbose
+		Explanation of the function or its result. You can include multiple examples with additional .EXAMPLE lines
+	#>
+	
+	
+	[CmdletBinding()]
+	param (
+		[Privelege[]]$Privelege
+	)
+	
+	begin {
+		
+	}
+	
+	process {
+		
+	}
+	
+	end {
+		
+	}
+}
 function Get-Environment {
 	[hashtable]$environmentPaths = @{}
 	foreach ($environmentVariableTarget in ([System.EnvironmentVariableTarget].GetEnumNames().Length - 1)..0) {
@@ -477,7 +553,17 @@ function Get-DevelopmentModule {
 	)
 	
 	switch ($developmentEnvironment) {
-		'vs' { return 'C:\Program Files\Microsoft Visual Studio\2022\Preview\Common7\Tools\Microsoft.VisualStudio.DevShell.dll' }
+		'vs' {
+			$VSWHERE = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio" installer vswhere.exe
+			$VSTUDIO = & $VSWHERE -Property installationPath
+			return Join-Path $VSTUDIO Common7 Tools Microsoft.VisualStudio.DevShell.dll
+			# $VSTUDIO = & $VSWHERE -Format JSON | ConvertFrom-Json
+			# return Join-Path (& $VSWHERE -Format Value -Property installationPath) Common7 Tools Microsoft.VisualStudio.DevShell.dll
+			# $VSWHERE = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+			# $installationPath = &$VSWHERE -Format value -Property installationPath
+
+			# return "$installationPath\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+		}
 		'powertoys' { return 'C:\Program Files\PowerToys\WinGetCommandNotFound.psd1' }
 		'vcpkg' { return 'C:\Users\power\Documents\GitHub\vcpkg\scripts\posh-vcpkg' }	
 	}
@@ -495,7 +581,9 @@ function Invoke-DeveloperTool {
 			break
 		}
 		'vs' {
-			Enter-VsDevShell e5832a20 -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" | Out-Null
+			$VSWHERE = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio" installer vswhere.exe
+			$VSTUDIO = & $VSWHERE -Property instanceId
+			Enter-VsDevShell $VSTUDIO -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" | Out-Null
 			break
 		}
 	}
@@ -535,4 +623,478 @@ function Enable-Development {
 		Write-Output "Invoke Tool for '$developmentEnvironment'"
 		Invoke-DeveloperTool -developmentEnvironment:$developmentEnvironment
 	}
+}
+
+
+# function global:Get-DirectoryTree
+# {
+# 	[CmdletBinding()]
+# 	param(
+# 		[Parameter(Position = 0)]
+# 		[System.IO.DirectoryInfo]
+# 		$referenceObject = (Get-Location | Get-Item),
+
+# 		[Parameter(ValueFromPipeline)]
+# 		[System.IO.DirectoryInfo]
+# 		$inputObject = ($HOME)
+# 	)
+# 	#   dynamicparam {<statement list>}
+# 	begin
+# 	{
+# 		$currentLocation = $referenceObject
+# 		$referenceList = [System.Collections.ArrayList]@($currentLocation.FullName)
+
+# 		while ($currentLocation.FullName -ne $referenceObject.Root.FullName)
+# 		{
+# 			$referenceList.Add($currentLocation.FullName)
+# 			$currentLocation = $currentLocation.Parent
+# 		}
+
+# 		$referenceList
+# 	}
+# 	process
+# 	{
+# 		$currentLocation = $inputObject
+# 		$inputList = [System.Collections.ArrayList]@($inputObject.FullName)
+
+# 		while ($currentLocation.FullName -ne $inputObject.Root.FullName)
+# 		{
+# 			$inputList.Add($currentLocation.FullName)
+# 			$currentLocation = $currentLocation.Parent
+# 		}
+# 		# $_ | Out-Default
+# 		# foreach ($item in $input) {
+# 		#     $item | Out-Default
+# 		# }
+# 		# $inputObject | Out-Default
+# 		# Write-Debug "$_"
+# 		# Write-Debug "$inputObject -> $referenceObject"
+# 		# Write-Debug $input
+# 		# $currentLocation = $inputObject;
+
+
+# 		# while ($currentLocation.FullName -ne $currentLocation.Root.FullName -and $tree -notcontains $currentLocation.FullName)
+# 		# { # -and $tree.Contains($currentLocation.FullName) -eq $false) {
+# 		#     $tree.Add($currentLocation.FullName)
+# 		#     $currentLocation = $currentLocation.Parent
+# 		# }
+
+# 		# $currentLocation.FullName
+# 	}
+# 	end
+# 	{
+# 		# $tree
+# 		# $tree.join(";")
+# 	}
+# 	clean
+# 	{
+# 	}
+# }
+function Get-Parents {
+	
+	[CmdletBinding(PositionalBinding)]
+	param (
+		# Specifies a path to one or more locations. Wildcards are permitted.
+		[Parameter(Mandatory = $true,
+			Position = 0,
+			ParameterSetName = "ResolvablePaths",
+			ValueFromPipeline,
+			# ValueFromPipelineByPropertyName = $true,
+			ValueFromRemainingArguments,
+			HelpMessage = "Path to one or more locations.")]
+		[ValidateNotNullOrEmpty()]
+		# [SupportsWildcards()]
+		[System.IO.FileInfo[]]
+		$Path
+	)
+	process {
+		foreach ($currentItem in $Path) {
+			$currentItem |
+			Where-Object { $currentItem.Directory.Name -NE $currentItem.Directory.Root.Name } | 
+			ForEach-Object { Get-Parents $_.Directory }
+		}
+		# ForEach-Object Split([System.IO.Path]::PathSeparator) |
+		# ForEach-Object { param([string]$path = $_) [System.Environment]::ExpandEnvironmentVariables($path) } |
+		# Where-Object { param([string]$path = $_) $path | Test-Path } |
+		# Resolve-Path |
+		# Get-Item
+		# Where-Object { $_.Parent.Name -NE $_.Root.Name } |
+		# ForEach-Object {
+		# 	Get-Parents $_.Parent.n
+		# };
+		# $PSItem
+	}
+}
+
+# function  {
+#   [CmdletBinding()]
+#   param(
+# 	[parameter(ValueFromPipeline)]$
+#   )
+
+#   begin {
+# 	[Collections.ArrayList]$inputObjects = @()
+#   }
+#   process {
+# 	[void]$inputObjects.Add($)
+#   }
+#   end {
+# 	$inputObjects | Foreach -Parallel {
+	  
+# 	}
+#   }
+# }
+
+# # Specifies a path to one or more locations. Wildcards are permitted.
+# [Parameter(Mandatory=$true,
+# 		   Position=Position,
+# 		   ParameterSetName="ParameterSetName",
+# 		   ValueFromPipeline=$true,
+# 		   ValueFromPipelineByPropertyName=$true,
+# 		   HelpMessage="Path to one or more locations.")]
+# [ValidateNotNullOrEmpty()]
+# [SupportsWildcards()]
+# [string[]]
+# $ParameterName
+
+function Get-FileSystemObject {
+	[Alias('G-	FSO')]
+	[CmdletBinding(PositionalBinding,DefaultParameterSetName="Path")]
+	param (
+		[Parameter(Mandatory,ParameterSetName="File",ValueFromRemainingArguments,ValueFromPipeline,ValueFromPipelineByPropertyName,Position=0)]
+		[ValidateNotNull()]
+		[System.IO.FileInfo[]]
+		$File,
+
+		[Parameter(Mandatory,ParameterSetName="Directory",ValueFromRemainingArguments,ValueFromPipeline,ValueFromPipelineByPropertyName,Position=0)]
+		[ValidateNotNull()]
+		[System.IO.DirectoryInfo[]]
+		$Folder,
+
+		# Parameter help description
+		[Parameter(Mandatory,ParameterSetName='Path',ValueFromRemainingArguments,ValueFromPipeline,ValueFromPipelineByPropertyName,Position=0)]
+		[ValidateNotNullOrWhiteSpace()]
+		[SupportsWildcards()]
+		[ValidateScript({ $null -isnot ($_ | Resolve-Path) })]
+		[string[]]
+		$Path
+	)
+
+	begin {
+	}
+	
+	process {
+		$filesystemObject = New-Object -ComObject Scripting.FileSystemObject
+		if ($PSCmdlet.ParameterSetName.Equals('Path')) {
+			$Directory, $File = ($path | Resolve-Path | Get-Item).Where({ $_.PSIsContainer }, 'Split')
+		}
+		$File | ForEach-Object -Parallel { $filesystemObject.GetFile($_.FullName) }
+		$Directory | Foreach-Object -Parallel { $filesystemObject.GetDirectory($_.FullName) }
+
+		# switch ($PSCmdlet.ParameterSetName) {
+		# 	'File' {
+		# 	}
+		# 	'Directory' {
+		# 	}
+		# 	'Path' {
+
+		# 		$Directory | Where-Object -Parallel { $filesystemObject.GetFolder($_) }
+		# 		$File | Where-Object -Parallel { $filesystemObject.GetFile($_) }
+		# 	}
+		# }
+	}
+
+	end {}
+
+	clean {
+
+		Remove-Variable -Name fileSystemObject
+	}
+
+	# (, (Get-ChildItem -Attributes System+Hidden C:\ -Depth 2).Where({ $_.PSIsContainer }, 'Split')) | % { ($_[0] | % { $filesystemObject.GetFolder($_) }) ; ($_[1] | % { $filesystemObject.GetFile($_) }) }
+
+}
+# function Expand-Object {
+# 	[CmdletBinding()]
+# 	param (
+# 		# Parameter help description
+# 		[Parameter(ValueFromPipeline)]
+# 		[psobject]
+# 		$PSInputObject,
+# 		[Parameter(ValueFromRemainingArguments)]
+# 		[string]
+# 		$groupProperty
+# 	)
+# 	# $keys = @($externalKeys ; $internalKeys)
+# 	# $defaultDisplayPropertySet = New-Object System.Management.Automation.PSPropertySet('DefaultDisplayPropertySet', [string[]]$keys)
+# 	# $PSStandardMembers = [System.Management.Automation.PSMemberInfo[]]@($defaultDisplayPropertySet)
+# 	# $myobject | .
+# 	# $PSInputObject |
+# 	# ForEach-Object {
+# 	# 	param($item = $_)
+# 	# 	$item.members
+# 		# $hashtable = [hashtable]@{}
+
+# 		# foreach( $property in $item.psobject.members.properties.name)
+# 		# {
+# 		# 	$hashtable[$property] = $_.$property
+# 		# }
+# 		# $hashtable
+
+# 		# $_[$groupProperty].GetEnumerator() |
+# 		# ForEach-Object {
+# 		# 	param($it = $_)
+# 		# 	$hashtable.CopyTo($t)
+# 		# 	foreach ( $property in $it.psobject.properties.name) {
+# 		# 		$t[$property] = $it.$property
+# 		# 	}
+# 		# 	$t
+# 		# }
+# 		# # Format-Table -GroupBy TypeName Key, Value
+# 	# }
+# }
+# Register-ArgumentCompleter -CommandName bat -ParameterName style -ScriptBlock {
+# 	param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+
+# }
+
+# $parser = [hashtable]@{}
+# $syntax = [hashtable]@{}
+# $manual = [hashtable]@{}
+# $parser.bat = [regex]::new("(?<=[\r\n])\x20{2}(?:-(?<alias>\w),\x20|\x20{4})--(?<parameter>[\w-]+)(?:\x20\<(?<arguments>.+)\>)?(?<description>(?:[\r\n]+\x20{10}.*|[\r\n](?=[\r\n]))*)", [System.Text.RegularExpressions.RegexOptions]::Compiled)
+# $manual.bat = (bat --help) | Join-String -Separator "`n"
+# $syntax.bat = $parser.bat.Matches($manual.bat) |
+#  Foreach-Object {
+# 	[pscustomobject]@{
+# 		"Parameter" = $_.Groups['parameter']
+# 		"Alias" = $_.Groups['alias']
+# 		"Arguments" = $_.Groups['arguments']
+# 		"Description" = $_.Groups['description'].Value -Replace '\x20{10}', '' | ForEach-Object Trim
+# 	}
+# }
+# $predictor = [hashtable]@{}
+# $predictor.bat = {
+# 	param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+# 	$syntax.bat | Where-Object Parameter -like "$wordToComplete*" | ForEach-Object {
+# 		[System.Management.Automation.CompletionResult]::new($_.parameter, $_.parameter, 'ParameterValue', $_.parameter)
+# 	}
+# }
+# # Register-ArgumentCompleter -CommandName bat -Native -ScriptBlock {
+	
+# # }
+# Register-ArgumentCompleter -CommandName bat -ParameterName theme -ScriptBlock {
+# 	param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+# 	$syntax.bat | Where-Object Parameter -like "$wordToComplete*" | ForEach-Object {
+# 		[System.Management.Automation.CompletionResult]::new($_.parameter, $_.parameter, 'ParameterValue', $_.parameter)
+# 	}
+# }
+# Register-ArgumentCompleter -CommandName bat -ParameterName language -ScriptBlock {
+	
+# }
+# Register-ArgumentCompleter -CommandName bat -ParameterName style -ScriptBlock {
+	
+# }
+# $services = Get-Service | Where-Object { $_.Status -eq "Running" -and $_.Name -like "$wordToComplete*" }
+# $services | ForEach-Object {
+# 	New-Object -Type System.Management.Automation.CompletionResult -ArgumentList $_.Name,
+# 	$_.Name,
+# 	"ParameterValue",
+# 	$_.Name
+# }
+# $defaultDisplaySet = 'Name', 'Size'
+# $defaultDisplayPropertySet = New-Object System.Management.Automation.PSPropertySet('DefaultDisplayPropertySet', [string[]]$defaultDisplaySet)
+# $PSStandardMembers = [System.Management.Automation.PSMemberInfo[]]@($defaultDisplayPropertySet)
+# $MyObject | Add-Member MemberSet PSStandardMembers $PSStandardMembers
+
+# Get-ChildItem C:\Users\power\AppData\Roaming\Package\version\ -Directory |
+# % {
+#   $size = Get-ChildItem $_ -Recurse -FollowSymlink -File | % Length | Measure-Object -Sum | % Sum
+#   $obj = [pscustomobject]@{
+#     Name=$_.FullName.Replace("C:\Users\power\AppData\Roaming\Package\version\","")
+#     Size=($size | Get-DataSize)
+#     Length=$size
+#   }
+#   $obj | Add-Member MemberSet PSStandardMembers $PSStandardMembers
+#   $obj
+# } | Sort-Object -Property Length | Format-Table
+
+# @{ Video = $video ; Title = $title ; Duration = $duration ; Thumbnail = $thumbnail ; Embed = $embed ; Tags = $tags ; Models = $models ; Id = $id ; Category = $category ; Quality = $quality }
+# Get-Content ~\Downloads\xvideos.com-export-full.csv\xvideos.com-export-full.csv | % { $video, $title, $duration, $thumbnail, $embed, $tags, $models, $id, $category, $quality, $other = $_.split(';'); [pscustomobject]@{ Video = $video ; Title = $title ; Duration = $duration ; Thumbnail = $thumbnail ; Embed = $embed ; Tags = ($tags -split ',') ; Models = $models.Split(',') ; Id = $id ; Category = $category ; Quality = $quality } } | Where-Object Quality -NE 'SD' | Where-Object Tags -Like 'fake-tits' | Where-Object Tags -Like 'asian' | Format-List @{Label = "Tags"; Expression = { $_.Tags | Join-String -Separator ',' } }, Video, Duration, Models | Select-Object -First 10
+# Get-Content ~\Downloads\xvideos.com-export-full.csv\xvideos.com-export-full.csv -TotalCount 100000 | % { $video, $title, $duration, $thumbnail, $embed, $tags, $models, $id, $category, $quality, $other = $_.split(';'); [pscustomobject]@{ Video = $video ; Title = $title ; Duration = $duration ; Thumbnail = $thumbnail ; Embed = $embed ; Tags = ($tags -split ',') ; Models = $models.Split(',') ; Id = $id ; Category = $category ; Quality = $quality } } | Where-Object Quality -NE 'SD' | Select-Object -ExpandProperty Tags | Where-Object { $_ -Like '*boobs*' -or $_ -like '*tits*' } | Group-Object | Sort-Object Name
+# Get-Content ~\Downloads\xvideos.com-export-full.csv\xvideos.com-export-full.csv -TotalCount 1 | % { $video, $title, $duration, $thumbnail, $embed, $tags, $models, $id, $category, $quality, $other = $_.split(';'); [pscustomobject]@{ Video = $video ; Title = $title ; Duration = $duration ; Thumbnail = $thumbnail ; Embed = $embed ; Tags = ($tags -split ',') ; Models = $models.Split(',') ; Id = $id ; Category = $category ; Quality = $quality } | % { ([regex]"html5player.setVideoUrlHigh\('(.+)'\)").Match((Invoke-RestMethod -Uri $_.Video | Join-String -Separator '\n')).Groups[1].Value } | % { Invoke-WebRequest -Uri $_ -OutFile "$id.mp4" } }
+# Get-Content ~\Downloads\xvideos.com-export-full.csv\xvideos.com-export-full.csv | % { $video, $title, $duration, $thumbnail, $embed, $tags, $models, $id, $category, $quality, $other = $_.split(';'); [int]$runtime = ([regex]"\d+").Match(($duration)).Groups[0].Value ; [pscustomobject]@{ Video = $video ; Title = $title ; Duration = [timespan]::new($runtime / 60 / 60, $runtime / 60 % 60, $runtime % 60) ; Thumbnail = $thumbnail ; Embed = $embed ; Tags = ($tags -split ',') ; Models = $models.Split(',') ; Id = $id ; Category = $category ; Quality = $quality } } | Where-Object Quality -NE 'SD' | Where-Object Tags -Like 'big-tits' | Where-Object Tags -Like 'asian' | Format-List @{Label = "Tags"; Expression = { $_.Tags | Join-String -Separator ',' } }, Video, Duration, Models | Select-Object -First 10
+# Get-Content ~\Downloads\xvideos.com-export-full.csv\xvideos.com-export-full.csv | % { $video, $title, $duration, $thumbnail, $embed, $tags, $models, $id, $category, $quality, $other = $_.split(';'); [int]$runtime = ([regex]"\d+").Match(($duration)).Groups[0].Value ; [pscustomobject]@{ Video = $video ; Title = $title ; Duration = (New-TimeSpan -Seconds $runtime) ; Thumbnail = $thumbnail ; Embed = $embed ; Tags = ($tags -split ',') ; Models = $models.Split(',') ; Id = $id ; Category = $category ; Quality = $quality } } | Where-Object Quality -NE 'SD' | Where-Object Tags -Like 'big-tits' | Where-Object Tags -Like 'oiled' | Format-Table Duration, Title, @{Label = "Video"; Expression = { $PSStyle.FormatHyperlink($_.Quality, $_.Video) }}
+# Get-ChildItem -Path C:\Users\power\Downloads\ -Directory | % { [pscustomobject]@{ "Name"=($_.Name);"Size"=(Get-ChildItem -Recurse $_ | Measure-Object -Property Length -Sum) | % Sum } } | Sort-Object -Property Size | Format-Table Name,@{Label="Size";Expression={$_.Size | Get-DataSize }}
+
+# function Update-Package {
+
+# }
+
+function Reset-Package {
+	[CmdletBinding()]
+	param (
+		[Parameter(
+			Mandatory=$false,
+			ValueFromRemainingArguments
+		)]
+		[ValidateNotNullOrEmpty()]
+		[SupportsWildcards()]
+		[string]
+		$Path
+	)
+	Get-ChildItem -Directory $INSTALL/version |
+	Where-Object { Test-Path $_/latest } |
+	ForEach-Object { Get-ChildItem $_/latest/*.exe } |
+	Where-Object { -not $INSTALL.GetFiles($_.Name).Exists } |
+	ForEach-Object { New-Item -i s -p "$INSTALL" -n $_.Name -v (Join-Path version $_.Directory.Parent.BaseName latest $_.Name) }
+		# [System.IO.DirectoryInfo]$INSTALL = "$env:APPDATA\Package" | Get-Item
+		# [System.IO.DirectoryInfo[]]$VERSIONS = $INSTALL | Get-ChildItem -Directory
+		# [System.IO.DirectoryInfo[]]$PACKAGES = $PSBoundParameters.ContainsKey('Path') ? (Get-ChildItem -Directory $VERSIONS -Filter $Path) : (Get-ChildItem -Directory $VERSIONS) # $VERSIONS.GetDirectories($Path) : $VERSIONS.GetDirectories()
+
+		# $BINARIES = $PACKAGES.GetDirectories('latest').GetFiles('*.exe').Where({ -not (Get-Item "$env:APPDATA\Package").GetFiles($_.Name).Exists })
+
+		# foreach ($BINARY in $BINARIES) {
+		# 	New-Item -ItemType SymbolicLink -Path $INSTALL -Name ${BINARY.Name} -Value (Join-Path version ${BINARY.Directory.Parent.BaseName} latest ${BINARY.Name})
+		# }
+
+
+}
+function Set-Package {
+	[CmdletBinding(PositionalBinding, DefaultParameterSetName="LiteralPath")]
+	param (
+		# Specifies a path to one or more locations. Unlike the Path parameter, the value of the LiteralPath parameter is
+		# used exactly as it is typed. No characters are interpreted as wildcards. If the path includes escape characters,
+		# enclose it in single quotation marks. Single quotation marks tell Windows PowerShell not to interpret any
+		# characters as escape sequences.
+		# [Parameter(Mandatory=$true,
+		# 		   Position=0,
+		# 		   ParameterSetName="LiteralPath",
+		# 		   ValueFromPipelineByPropertyName=$true,
+		# 		   HelpMessage="Literal path to one or more locations.")]
+		# [Alias("PSPath")]
+		# [ValidateNotNullOrEmpty()]
+		# [SupportsWildcards()]
+		# [string]
+		# $LiteralPath,
+		
+		# Specifies a path to one or more locations. Wildcards are permitted.
+		[Parameter(Mandatory=$true,
+		Position=0,
+		ParameterSetName="Path",
+		ValueFromPipeline=$true,
+		ValueFromPipelineByPropertyName=$true,
+		HelpMessage="Path to one or more locations.")]
+		[Alias("Package")]
+		[ValidateNotNullOrEmpty()]
+		[SupportsWildcards()]
+		[string]
+		$Path,
+
+		# Specifies a path to one or more locations. Wildcards are permitted.
+		[Parameter(Mandatory = $true,
+			Position = 1,
+			ParameterSetName = "Path"
+		)]
+		[Parameter(Mandatory = $true,
+			Position = 1,
+			ParameterSetName = "LiteralPath"
+		)]
+		[Parameter(
+				   ValueFromPipeline=$true,
+				   ValueFromPipelineByPropertyName=$true,
+				   HelpMessage="path to latest version")]
+		[ValidateNotNullOrEmpty()]
+		[SupportsWildcards()]
+		[version]
+		$latest
+	)
+
+	[System.IO.DirectoryInfo[]]$INSTALL = "$env:APPDATA\Package" | Get-Item
+	[System.IO.DirectoryInfo[]]$VERSIONS = $INSTALL.GetDirectories('Version')
+	[System.IO.DirectoryInfo[]]$PACKAGE = $VERSIONS.GetDirectories($Path)
+
+	[System.IO.DirectoryInfo[]]$PREVIOUS = $PACKAGE.GetDirectories('latest')
+	[System.IO.DirectoryInfo[]]$CURRENT = $PACKAGE.GetDirectories($latest)
+
+	# [System.IO.FileInfo[]]$BINARIES = $INSTALL.GetFiles('*.exe')
+	[System.IO.FileInfo[]]$PREVIOUS_BINARIES = $PREVIOUS.GetFiles('*.exe')
+	[System.IO.FileInfo[]]$CURRENT_BINARIES = $CURRENT.GetFiles('*.exe')
+
+	$QUEUE_REMOVE = $PREVIOUS_BINARIES.Where({ $CURRENT_BINARIES.Name -inotcontains $_ })
+	$QUEUE_INSTALL = $CURRENT_BINARIES.Where({ $PREVIOUS_BINARIES.Name -inotcontains $_ })
+
+	Write-Output 'Remove: ' $QUEUE_REMOVE
+	Write-Output 'Install: ' $QUEUE_INSTALL
+	
+	New-Item -ItemType Junction (Join-Path $PACKAGE 'latest') ${CURRENT.FullName}
+
+	$QUEUE_INSTALL.
+
+	# [string]$INSTALL = "$env:APPDATA\Package"
+
+	# switch ($PSCmdlet.ParameterSetName) {
+	# 	'Path' {
+	# 		$Path |
+	# 		ForEach-Object Split([System.IO.Path]::PathSeparator) |
+	# 		Where-Object { param($path = $_) $path | ForEach-Object { Test-Path "$INSTALL\$_" } } |
+	# 		Resolve-Path |
+	# 		Get-Item |
+	# 		ForEach-Object FullName |
+	# 		Remove-Duplicates |
+	# 		Resolve-Path -Relative
+	# 	}
+	# 	'LiteralPath' {}
+	# }
+
+	[string]$previousPath = "$INSTALL\version\$package\latest"
+	[string]$currentPath = "$INSTALL\version\$package\$latest"
+
+	[System.IO.DirectoryInfo]$currentInstall = (Get-Item $currentPath).ResolvedTarget
+	[System.IO.FileInfo[]]$currentBinaries = Get-ChildItem $currentPath -Filter "*.exe"
+
+	[string]$currentVersion = $currentInstall.Name
+
+	Write-Debug [PSCustomObject]@{
+		Previous = $previousVersion
+		Current  = $currentVersion
+	}
+
+	if (Test-Path $previousPath) {
+		[System.IO.DirectoryInfo]$previousInstall = (Get-Item $previousPath).ResolvedTarget
+		[System.IO.FileInfo[]]$previousBinaries = Get-ChildItem $previousPath -Filter "*.exe"
+
+		[string]$previousVersion = $previousInstall.Name
+
+		[System.IO.FileInfo[]]$additionalBinaries = $currentBinaries | Where-Object Name -NotIn ($previousBinaries.Name)
+		[System.IO.FileInfo[]]$removedBinaries = $previousBinaries | Where-Object Name -NotIn ($currentBinaries.Name)
+
+		foreach ($removedBinary in $removedBinaries) {
+			Remove-Item $INSTALL/${removedBinary.Name}
+		}
+
+		Write-Debug [PSCustomObject]@{
+			Installing = $additionalBinaries
+			Removing = $removedBinaries
+		}
+
+		Remove-Item $previousPath
+	} else {
+		[System.IO.FileInfo[]]$additionalBinaries = $currentBinaries
+
+		foreach ($binary in $additionalBinaries) {
+			New-Item -ItemType SymbolicLink $INSTALL -Name $EXECUTABLE -Value $currentPath\${binary.Name}
+		}
+
+		Write-Debug [PSCustomObject]@{
+			Installing = $additionalBinaries
+		}
+	}
+	
+	foreach ($binary in $currentBinaries) {
+		if (-not (Test-Path $INSTALL\${binary.name})) {
+			New-Item -ItemType SymbolicLink $INSTALL -Name $EXECUTABLE -Value $currentPath\${binary.Name}
+		}
+	}
+
+	New-Item -ItemType Junction $previousPath -Value $currentPath
 }

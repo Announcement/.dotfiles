@@ -31,3 +31,4 @@ function Send-Completions {
   else {
     Write-Host "PsReadline was disabled. Shell Completion was not enabled."
   }
+

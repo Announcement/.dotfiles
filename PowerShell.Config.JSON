@@ -7,7 +7,7 @@
         "PSLoadAssemblyFromNativeCode"
     ],
     "ModuleLogging": {
-        "EnableModuleLogging": true,
+        "EnableModuleLogging": false,
         "ModuleNames": [
             "PSReadLine",
             "PSResourceGet"
@@ -16,5 +16,10 @@
     "Transcription": {
         "EnableTranscripting": true,
         "EnableInvocationHeader": true
-    }
+    },
+    "ConsoleSessionConfiguration": {
+        "EnableConsoleSessionConfiguration": false,
+        "ConsoleSessionConfigurationName" : []
+    },
+    "Microsoft.PowerShell:ExecutionPolicy": "RemoteSigned"
 }
